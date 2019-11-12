@@ -1,8 +1,11 @@
 #include <filesystem>
-#include <iostream>
+// #include <iostream>
 #include <string.h>
-#include <vector>
+// #include <vector>
 namespace fs = std::filesystem;
+
+#define PPP_MAIN_FILE
+#include "buildfile_parser.cpp"
 
 void usage();
 
@@ -60,7 +63,7 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < includePaths.size(); i++) {
 		// Check if the root directory exists
 		if (!fs::exists(includePaths[i])) {
-			std::cerr << "error: source directory '" << includePaths[i].generic_string() << "' does not exist!" << std::endl;
+			std::cerr << "error: source directory '" << includePaths[i].generic_string() << "' does not exist!\n";
 			return 0;
 		}
 
@@ -70,7 +73,7 @@ int main(int argc, char** argv) {
 	
 	// Check if there were any c++ files found
 	if(fileString.size() == 0) {
-		std::cerr << "warning: no c++ files found in any of the source directories. program exiting..." << std::endl;
+		std::cerr << "warning: no c++ files found in any of the source directories. program exiting...\n";
 		return 0;
 	}
 
@@ -84,7 +87,7 @@ int main(int argc, char** argv) {
 
 // A simple usage statment to throw is the user forgot to include soure directories
 void usage() {
-	std::cout << "usage: p++ requires one (or more) source directory(s) with the `i flag [e.g. p++ `ipath/to/your/source/directory]" << std::endl;
+	std::cout << "usage: p++ requires one (or more) source directory(s) with the `i flag [e.g. p++ `ipath/to/your/source/directory/]\n";
 }
 
 void searchDir(fs::path root, std::vector<fs::path> excludePaths, std::string& fileString) {
