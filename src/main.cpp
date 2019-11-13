@@ -4,7 +4,6 @@
 // #include <vector>
 namespace fs = std::filesystem;
 
-#define PPP_MAIN_FILE
 #include "buildfile_parser.cpp"
 
 void usage();
@@ -21,31 +20,51 @@ int main(int argc, char** argv) {
 
 	// A string to store the compiler flags
 	std::string compileFlags = "";
-	// A flag set if there is a specified output directory
+	// A string to store the output dir
 	bool hasOutDir = false;
 
 	// Lists of paths to include or exclude from compilation
 	std::vector<fs::path> includePaths, excludePaths;
 
-	for (int i = 1; i < argc; i++) {
-		std::string arg = std::string(argv[i]);
-
-		// If the arg is '`i' add the following path to the included paths list
-		if (arg.substr(0, 2) == "`i") includePaths.push_back(fs::path(arg.substr(2)));
-		// If the arg is '`e' add the following path to the excluded paths list
-		else if (arg.substr(0, 2) == "`e") excludePaths.push_back(fs::path(arg.substr(2)));
-		// If the arg is '--libDirOrigin' add a flag for linux that will make the shared object search directory the origin
-		else if (arg == "--libDirOrigin") compileFlags += "-Wl,-rpath='${ORIGIN}' ";
-		// If it's not a p++ flag pass it to g++
-		else {
-			// Set a flag if the output
-			if (arg.substr(0, 2) == "-o" && arg.size() > 2) {
-				hasOutDir = true;
+	// 
+	std::string arg1 = std::string(argv[1]);
+	if (arg1.substr(0, 2) == "`b") {
+		svmap objects = parse_file((arg1.size() > 2) ? (arg1.substr(2) + ".ppp").c_str() : "build.ppp");
+	
+		for (svmap::iterator it = objects.begin(); it != objects.end(); it++) {
+			for (auto value : it->second) {
+				if (it->first == "include") compileFlags += "-I\"" + value + "\" ";
+				else if(it->first == "exclude") excludePaths.push_back(fs::path(value));
+				else if (it->first == "roots") includePaths.push_back(fs::path(value));
+				else if (it->first == "out") {
+					compileFlags += "-o\"" + value + "\" ";
+					hasOutDir = true;
+				}
+				else if (it->first == "g++flags") compileFlags += value + " ";
 			}
-
-			// Add the argument to the list
-			compileFlags += arg;
 		}
+
+	} else {
+
+		for (int i = 1; i < argc; i++) {
+			std::string arg = std::string(argv[i]);
+
+			// If the arg is '`e' add the following path to the excluded paths list
+			if (arg.substr(0, 2) == "`e") excludePaths.push_back(fs::path(arg.substr(2)));
+			// If the arg is '`i' add the following path to the included paths list
+			else if (arg.substr(0, 2) == "`i") includePaths.push_back(fs::path(arg.substr(2)));
+			// If it's not a p++ flag pass it to g++
+			else {
+				// Set a flag if the output
+				if (arg.substr(0, 2) == "-o" && arg.size() > 2) {
+					hasOutDir = true;
+				}
+
+				// Add the argument to the list
+				compileFlags += arg + " ";
+			}
+		}
+
 	}
 
 	// Send a usage statement if no source directories are provided
@@ -98,7 +117,7 @@ void searchDir(fs::path root, std::vector<fs::path> excludePaths, std::string& f
 		bool shouldExclude = false;
 		// Check the current file/folder against the the exclude paths, and skip it if it matches 
 		for (auto path : excludePaths) {
-			if (file.path() == path) {
+			if (fs::equivalent(file.path(), path)) {
 				shouldExclude = true;
 				break;
 			}
