@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 
 	// If there is a buildfile read it and add g++ flags accordingly
 	std::string arg1 = std::string(argv[1]);
-	if (arg1.substr(0, 2) == "`b") {
+	if (arg1.substr(0, 2) == "_b") {
 		svmap objects = parse_file((arg1.size() > 2) ? (arg1.substr(2) + ".ppp").c_str() : "build.ppp");
 	
 		fs::path baseDir = fs::path(arg1.substr(2)).parent_path();
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 				else if (it->first == "include") compileFlags += "-I\"" + relPath.string() + "\" ";
 				else if (it->first == "libDir") compileFlags += "-L\"" + relPath.string() + "\" ";
 				else if (it->first == "exclude") excludePaths.push_back(relPath);
-				else if (it->first == "roots") includePaths.push_back(relPath);
+				else if (it->first == "root") includePaths.push_back(relPath);
 				else if (it->first == "out") {
 					compileFlags += "-o\"" + relPath.string() + "\" ";
 					hasOutDir = true;
@@ -55,9 +55,9 @@ int main(int argc, char** argv) {
 			std::string arg = std::string(argv[i]);
 
 			// If the arg is '`e' add the following path to the excluded paths list
-			if (arg.substr(0, 2) == "`e") excludePaths.push_back(fs::path(arg.substr(2)));
+			if (arg.substr(0, 2) == "_e") excludePaths.push_back(fs::path(arg.substr(2)));
 			// If the arg is '`i' add the following path to the included paths list
-			else if (arg.substr(0, 2) == "`i") includePaths.push_back(fs::path(arg.substr(2)));
+			else if (arg.substr(0, 2) == "_i") includePaths.push_back(fs::path(arg.substr(2)));
 			// If it's not a p++ flag pass it to g++
 			else {
 				// Set a flag if the output
