@@ -20,30 +20,35 @@ int main(int argc, char** argv) {
 
 	// A string to store the compiler flags
 	std::string compileFlags = "";
-	// A string to store the output dir
+	// A flag set if there is a specified output directory
 	bool hasOutDir = false;
 
 	// Lists of paths to include or exclude from compilation
 	std::vector<fs::path> includePaths, excludePaths;
 
-	// 
+	// If there is a buildfile read it and add g++ flags accordingly
 	std::string arg1 = std::string(argv[1]);
 	if (arg1.substr(0, 2) == "`b") {
 		svmap objects = parse_file((arg1.size() > 2) ? (arg1.substr(2) + ".ppp").c_str() : "build.ppp");
 	
+		fs::path baseDir = fs::path(arg1.substr(2)).parent_path();
+
 		for (svmap::iterator it = objects.begin(); it != objects.end(); it++) {
 			for (auto value : it->second) {
-				if (it->first == "include") compileFlags += "-I\"" + value + "\" ";
-				else if(it->first == "exclude") excludePaths.push_back(fs::path(value));
-				else if (it->first == "roots") includePaths.push_back(fs::path(value));
+				fs::path relPath = baseDir / fs::path(value);
+				if (it->first == "lib") compileFlags += "-l" + value + " ";
+				else if (it->first == "include") compileFlags += "-I\"" + relPath.string() + "\" ";
+				else if (it->first == "libDir") compileFlags += "-L\"" + relPath.string() + "\" ";
+				else if (it->first == "exclude") excludePaths.push_back(relPath);
+				else if (it->first == "roots") includePaths.push_back(relPath);
 				else if (it->first == "out") {
-					compileFlags += "-o\"" + value + "\" ";
+					compileFlags += "-o\"" + relPath.string() + "\" ";
 					hasOutDir = true;
 				}
 				else if (it->first == "g++flags") compileFlags += value + " ";
 			}
 		}
-
+	// If flags were instead written in the command line add g++ flags based on them
 	} else {
 
 		for (int i = 1; i < argc; i++) {
@@ -67,7 +72,7 @@ int main(int argc, char** argv) {
 
 	}
 
-	// Send a usage statement if no source directories are provided
+	// Inform the user if no source directories are provided
 	if (includePaths.size() < 1) {
 		usage();
 		return 0;
