@@ -53,8 +53,6 @@ svmap parse_file(const char* filepath, std::string mode) {
 	#elif defined(__APPLE__)
 	"osx";
 	#endif
-
-	std::cout << mode << "\n";
 	
 	svmap objMap;
 
@@ -66,12 +64,10 @@ svmap parse_file(const char* filepath, std::string mode) {
 	strvec objVec;
 
 	for (auto token : tokens) {
-		const char* tokenString = token.c_str();
-
 		// Check if string
 		if(token == "\"") isStr = !isStr;
 		else {
-			// Check 
+			// Check os and mode compatibility
 			if (token == "#") {
 				if (osValid >= 2) { modeValid = 2; osValid -= 2; }
 				else osValid += 2;
@@ -85,7 +81,7 @@ svmap parse_file(const char* filepath, std::string mode) {
 				else osValid = 0;
 			}
 
-			// Valid os and mode
+			// Valid os and mdoe
 			else if (osValid == 1 && modeValid == 1) {
 				if (isKey) {
 					if (token == ":" && !isStr) isKey = false;
