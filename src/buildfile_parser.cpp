@@ -39,7 +39,7 @@ strvec tokenize_file(const char* filepath, const char* delimiters = " ") {
 
 typedef std::map<std::string, strvec> svmap;
 
-svmap parse_file(const char* filepath) {
+svmap parse_file(const char* filepath, std::string mode) {
 
 	strvec tokens = tokenize_file(filepath);
 
@@ -53,22 +53,40 @@ svmap parse_file(const char* filepath) {
 	#elif defined(__APPLE__)
 	"osx";
 	#endif
+
+	std::cout << mode << "\n";
 	
 	svmap objMap;
 
 	bool isKey = true, isStr = false, isArr = false;
-	// 0 = invalid, 1, = valid, 2 = checking;
-	int8_t osValid = 1;
+	// 0 = invaliid, 1 = valid, 2 = checking
+	uint8_t osValid = 1, modeValid = 1;
 
 	std::string objKey, tempVal;
 	strvec objVec;
 
 	for (auto token : tokens) {
-		if(token == "\"") isStr = !isStr; 
+		const char* tokenString = token.c_str();
+
+		// Check if string
+		if(token == "\"") isStr = !isStr;
 		else {
-			if (token == "#") osValid = 2;
-			else if (osValid == 2 && (token == os || token == "*")) osValid = 1;
-			else if (osValid == 1) {
+			// Check 
+			if (token == "#") {
+				if (osValid >= 2) { modeValid = 2; osValid -= 2; }
+				else osValid += 2;
+			}
+			else if (modeValid == 2) {
+				if (token == mode || token == "*") modeValid = 1;
+				else modeValid = 0;
+			}
+			else if (osValid >= 2) {
+				if (token == os || token == "*") osValid = 1;
+				else osValid = 0;
+			}
+
+			// Valid os and mode
+			else if (osValid == 1 && modeValid == 1) {
 				if (isKey) {
 					if (token == ":" && !isStr) isKey = false;
 					else objKey += token;
@@ -88,6 +106,7 @@ svmap parse_file(const char* filepath) {
 					} else if (token != " " && token != "\t" && token != "\n") tempVal += token;
 				}
 			}
+
 		}
 
 	}

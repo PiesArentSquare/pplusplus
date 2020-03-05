@@ -1,7 +1,5 @@
-#include <filesystem>
-// #include <iostream>
 #include <string.h>
-// #include <vector>
+#include <filesystem>
 namespace fs = std::filesystem;
 
 #include "buildfile_parser.cpp"
@@ -27,9 +25,11 @@ int main(int argc, char** argv) {
 	std::vector<fs::path> includePaths, excludePaths;
 
 	// If there is a buildfile read it and add g++ flags accordingly
-	std::string arg1 = std::string(argv[1]);
+	std::string arg1 = argv[1];
 	if (arg1.substr(0, 2) == "_b") {
-		svmap objects = parse_file((arg1.size() > 2) ? (arg1.substr(2) + ".ppp").c_str() : "build.ppp");
+		const char* mode = "";
+		if (argc > 2) mode = argv[2];
+		svmap objects = parse_file((arg1.size() > 2) ? (arg1.substr(2) + ".ppp").c_str() : "build.ppp", mode);
 	
 		fs::path baseDir = fs::path(arg1.substr(2)).parent_path();
 
