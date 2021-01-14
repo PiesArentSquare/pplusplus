@@ -10,7 +10,7 @@ strvec split(std::string string) {
 	strvec tokens;
 	
 	// Captures : [ ] , " # space deletes tab and newline
-	std::regex e("([:[\\],\"# ]|[^:[\\],\"# \t\n]+)");
+	std::regex e("([:\\[\\],\"# ]|[^:\\[\\],\"# \\t\\n\\r]+)");
 
 	std::regex_iterator<std::string::iterator> rit(string.begin(), string.end(), e), rend;
 
@@ -23,7 +23,6 @@ strvec tokenize_file(const char* filepath, const char* delimiters = " ") {
 	std::ifstream file;
 	file.open(filepath);
 
-	// Error check
 	if (file.fail()) {
 		fprintf(stderr, "tokenizer error: file '%s' not found.\n", filepath);
 		return {};
@@ -31,6 +30,7 @@ strvec tokenize_file(const char* filepath, const char* delimiters = " ") {
 
 	std::stringstream sstr;
 	sstr << file.rdbuf();
+    file.close();
 
 	strvec tokens = split(sstr.str());
 
@@ -62,22 +62,23 @@ svmap parse_file(const char* filepath, const std::string profile) {
 	"osx";
 	#endif
 
-	const std::string isUnix = "";
+	const std::string isUnix = 
 	#if defined(unix) || defined(__unix) || defined(__unix__)
-	isUnix = "unix";
+	"unix";
+    #else
+    "";
 	#endif
 
 	svmap objMap;
 
 	bool isKey = true, isStr = false, isArr = false;
-	// 0 = invaliid, 1 = valid, 2 = checking
+	/* 0b00 = invaliid, 0b01 = valid, 0b1_ = checking */
 	uint8_t osValid = 1, profileValid = 1;
 
 	std::string objKey, tempVal;
 	strvec objVec;
 
 	for (auto token : tokens) {
-		// Check if string
 		if(token == "\"") isStr = !isStr;
 		else {
 			// Check os and profile compatibility
@@ -98,7 +99,7 @@ svmap parse_file(const char* filepath, const std::string profile) {
 			else if (osValid == 1 && profileValid == 1) {
 				if (isKey) {
 					if (token == ":" && !isStr) isKey = false;
-					else objKey += token;
+					else if (token != " ") objKey += token;
 				} else {
 					if (isStr) tempVal += token;
 					else if (token == "[") isArr = true;
@@ -114,10 +115,10 @@ svmap parse_file(const char* filepath, const std::string profile) {
 							objVec = {};
 							isKey = true;
 						}
-					} else if (token != " " && token != "\t" && token != "\n") tempVal += token;
+					} else if (token != " " && token != "\t" && token != "\n")
+                        tempVal += token;
 				}
 			}
-
 		}
 	}
 	if (!tempVal.empty() || !isArr) {
