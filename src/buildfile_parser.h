@@ -21,7 +21,7 @@ strvec split(std::string string) {
     return tokens;
 }
 
-strvec tokenize_file(const char* filepath, const char* delimiters = " ") {
+strvec tokenize_file(std::string filepath) {
     std::ifstream file;
     file.open(filepath);
 
@@ -51,7 +51,7 @@ void insert(svmap &map, strvec &vec, std::string key) {
 }
 
 
-svmap parse_file(const char* filepath, const std::string profile) {
+svmap parse_file(std::string filepath, const std::string profile) {
 
     strvec tokens = tokenize_file(filepath);
 

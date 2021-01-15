@@ -13,21 +13,21 @@ std::map<char, std::string> cmdKeyToKeyMap = {
     {'L', "libDir"},
     {'d', "define"},
     {'f', "gccflags"},
-    {'c', "cwd"}
+    {'c', "cwd"},
+    {'o', "out"}
 };
 
 std::map<std::string, std::function<void(strvec)>> keyFunctions;
 
 void searchDirectory(fs::path root, std::vector<fs::path> excludePaths, std::string& fileString) {
     for (auto file : fs::directory_iterator(root)) {
-
         bool shouldExclude = false;
-        for (auto path : excludePaths) 
+        for (auto path : excludePaths) {
             if (fs::equivalent(file.path(), path)) {
                 shouldExclude = true;
                 break;
             }
-
+        }
         if (shouldExclude) continue;
 
         if (file.path().extension() == ".cpp" || file.path().extension() == ".cc") {
@@ -39,7 +39,49 @@ void searchDirectory(fs::path root, std::vector<fs::path> excludePaths, std::str
 }
 
 void build(svmap args, fs::path baseDir) {
-    
+    auto keyExists = [](auto map, auto key) -> bool { return (map.find(key) != map.end()); };
+
+    auto runOnEach = [&](std::string key, auto fn) -> void { if (keyExists(args, key)) for (auto v : args.at(key)) fn(v); };
+
+    if (!keyExists(args, "root")) {
+        std::cerr << "usage: p++ requires at least one root source directory.\n";
+        return;
+    }
+
+    if (keyExists(args, "cwd"))
+        baseDir = fs::absolute(fs::path(args.at("cwd").at(0)));
+
+    std::vector<fs::path> rootDirs, excludePaths;
+    runOnEach("root", [&](auto v) { rootDirs.push_back(baseDir / fs::path(v)); });
+    runOnEach("exclude", [&](auto v) { excludePaths.push_back(baseDir / fs::path(v)); });
+
+    std::string compilerFlags = "";
+    runOnEach("include", [&](auto v) { compilerFlags += "-I \"" + (baseDir / fs::path(v)).string() + "\" "; });
+    runOnEach("libDir", [&](auto v) { compilerFlags += "-L \"" + (baseDir / fs::path(v)).string() + "\" "; });
+    runOnEach("lib", [&](auto v) { compilerFlags += "-l" + v + " "; });
+    runOnEach("define", [&](auto v) { compilerFlags += "-D " + v + " "; });
+    runOnEach("gccflags", [&](auto v) { compilerFlags += v + " "; });
+    if (keyExists(args, "out"))
+        compilerFlags += "-o \"" + (baseDir / fs::path(args.at("out").at(0))).string() + "\" ";
+    else
+        compilerFlags += "-o \"" + baseDir.string() + "/a.exe\" ";
+
+    std::string filesString = "";
+    for (auto dir : rootDirs) {
+        if (!fs::exists(dir)) {
+            std::cerr << "error: root directory '" << dir.c_str() << "' does not exist!\n";
+            return;
+        }
+        searchDirectory(dir, excludePaths, filesString);
+    }
+
+    if (filesString.empty()) {
+        std::cerr << "warning: no c++ files found in any of the specified root directories\n";
+        return;
+    }
+
+    std::cout << "\033[33;1mexecuting: g++ " << filesString << compilerFlags << "\033[0m\n";
+    system(("g++ " + filesString + compilerFlags).c_str());
 }
 
 svmap parseArgs(int argc, char const **argv) {
@@ -60,9 +102,11 @@ svmap parseArgs(int argc, char const **argv) {
     for (int i = 1; i < argc; i++) {
         currentArg = argv[i];
         if (currentArg.substr(0, 1) == "-") {
-            if (!currentKey.empty())
+            if (!currentKey.empty()) {
                 insert(args, currentValues, currentKey);
-            
+                currentValues.clear();
+            }
+
             auto [key, val] = readVal(currentArg, i);
             currentValues.push_back(val);
             currentKey = cmdKeyToKeyMap.at(key);
@@ -70,25 +114,28 @@ svmap parseArgs(int argc, char const **argv) {
             currentValues.push_back(currentArg);
         }
     }
+    insert(args, currentValues, currentKey);
     return args;
 }
 
-void buildWithFile(std::string path, std::string profile = "") {
-    std::cout << "building: '" << path << "'";
-    if (!profile.empty()) std::cout << " on profile: '" << profile << "'";
-    std::cout << "\n";
+void buildWithArgs(int argc, char const **argv) {
+    std::cout << "building via command-line arguments\n";
+    auto args = parseArgs(argc, argv);
+    build(args, fs::absolute(fs::path("./")));
 }
 
-void buildWithArgs(int argc, char const **argv) {
-    std::cout << "building via args\n";
-    auto args = parseArgs(argc, argv);
-    fs::path baseDir;
+void buildWithFile(std::string path, std::string profile = "") {
+    std::cout << "building: '\033[34;1m" << path << "\033[0m'";
+    if (!profile.empty()) std::cout << " on profile: '\033[32;1m" << profile << "\033[0m'";
+    std::cout << "\n";
+    auto args = parse_file(path, profile);
+    build(args, fs::absolute(fs::path(path)).parent_path());
 }
 
 int main(int argc, char const **argv) {
     if (argc < 2)
         buildWithFile("./build.ppp");
-    else if (std::string arg1 = argv[1]; arg1.substr(0, 2) == "-b") {
+    else if (std::string arg1 = argv[1]; arg1.substr(0, 2) == "-b" || arg1.substr(0, 2) == "_b") {
         std::string buildfile = "./build";
         if (arg1.size() > 2) buildfile = arg1.substr(2);
         
@@ -96,7 +143,7 @@ int main(int argc, char const **argv) {
         if (argc > 2) profile = argv[2];
 
         buildWithFile(buildfile + ".ppp", profile); 
-    }
-    else buildWithArgs(argc, argv);
+    } else buildWithArgs(argc, argv);
+
     return 0;
 }
