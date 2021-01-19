@@ -58,6 +58,7 @@ void build(svmap args, fs::path baseDir) {
     std::string compilerFlags = "";
     runOnEach("include", [&](auto v) { compilerFlags += "-I \"" + (baseDir / fs::path(v)).string() + "\" "; });
     runOnEach("libDir", [&](auto v) { compilerFlags += "-L \"" + (baseDir / fs::path(v)).string() + "\" "; });
+    if constexpr (isUnix()) compilerFlags += "-Wl,-rpath='$ORIGIN' ";
     runOnEach("lib", [&](auto v) { compilerFlags += "-l" + v + " "; });
     runOnEach("define", [&](auto v) { compilerFlags += "-D " + v + " "; });
     runOnEach("gccflags", [&](auto v) { compilerFlags += v + " "; });
