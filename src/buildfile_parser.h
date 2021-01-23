@@ -12,7 +12,7 @@ strvec split(std::string string) {
     strvec tokens;
     
     // Captures : [ ] , " # space deletes tab and newline
-    std::regex e("([:\\[\\],\"# ]|[^:\\[\\],\"# \\t\\n\\r]+)");
+    std::regex e(R"((?:\/\/)|(?:\/\*)|(?:\*\/)|[:\[\],"# \n]|[^:\[\],"# \t\n\r]+)");
 
     std::regex_iterator<std::string::iterator> rit(string.begin(), string.end(), e), rend;
 
@@ -79,12 +79,18 @@ svmap parse_file(std::string filepath, const std::string profile) {
     /* 0b00 = invaliid, 0b01 = valid, 0b1. = checking */
     uint8_t osValid = 1, profileValid = 1;
 
+    /* 0 = not comment, 1 = single-line, 2 = block */
+    uint8_t isComment = 0;
+
     std::string objKey, tempVal;
     strvec objVec;
 
     for (auto token : tokens) {
-        if (token == "\"") isStr = !isStr;
-        else {
+        if (token == "\"" && isComment == 0) isStr = !isStr;
+        else if (isComment == 0 && token == "//") isComment = 1;
+        else if (isComment == 0 && token == "/*") isComment = 2;
+        else if ((isComment == 1 && token == "\n") || (isComment == 2 && token == "*/")) isComment = 0;
+        else if (isComment == 0) {
             // Check os and profile compatibility
             if (token == "#") {
                 if (osValid >= 2) { profileValid = 2; osValid -= 2; }
@@ -102,10 +108,11 @@ svmap parse_file(std::string filepath, const std::string profile) {
             // Valid os and profile
             else if (osValid == 1 && profileValid == 1) {
                 if (isKey) {
-                    if (token == ":" && !isStr) isKey = false;
-                    else if (token != " ") objKey += token;
+                    if (isStr) { if (token != "\n") objKey += token; }
+                    else if (token == ":") isKey = false;
+                    else if (token != " " && token != "\n") objKey += token;
                 } else {
-                    if (isStr) tempVal += token;
+                    if (isStr) { if (token != "\n") tempVal += token; }
                     else if (token == "[") isArr = true;
                     else if (token == "]") isArr = false;
                     else if (token == ",") {
