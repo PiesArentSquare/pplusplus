@@ -50,6 +50,13 @@ void insert(svmap &map, strvec &vec, std::string key) {
     } else map.insert({key, vec});
 }
 
+bool constexpr isUnix() {
+    #if defined(unix) || defined(__unix) || defined(__unix__)
+    return true;
+    #else
+    return false;
+    #endif
+}
 
 svmap parse_file(std::string filepath, const std::string profile) {
 
@@ -64,12 +71,7 @@ svmap parse_file(std::string filepath, const std::string profile) {
     "osx";
     #endif
 
-    const std::string isUnix = 
-    #if defined(unix) || defined(__unix) || defined(__unix__)
-    "unix";
-    #else
-    "";
-    #endif
+    const std::string unixStr = (isUnix() ? "unix" : "");
 
     svmap objMap;
 
@@ -81,7 +83,7 @@ svmap parse_file(std::string filepath, const std::string profile) {
     strvec objVec;
 
     for (auto token : tokens) {
-        if(token == "\"") isStr = !isStr;
+        if (token == "\"") isStr = !isStr;
         else {
             // Check os and profile compatibility
             if (token == "#") {
@@ -93,7 +95,7 @@ svmap parse_file(std::string filepath, const std::string profile) {
                 else profileValid = 0;
             }
             else if (osValid >= 2) {
-                if (token == os || token == isUnix || token == "*") osValid = 1;
+                if (token == os || token == unixStr || token == "*") osValid = 1;
                 else osValid = 0;
             }
 

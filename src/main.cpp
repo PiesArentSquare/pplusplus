@@ -38,14 +38,28 @@ void searchDirectory(fs::path root, std::vector<fs::path> excludePaths, std::str
     }
 }
 
-void build(svmap args, fs::path baseDir) {
+bool checkAndCreateDir(fs::path dir) {
+    if (!fs::exists(dir)) {        
+        try {
+            fs::create_directories(dir);
+            std::cout << "directory '" << dir.string() << "' created!\n";
+            return true;
+        } catch (fs::filesystem_error e) {
+            std::cout << e.what() << '\n';
+            return false;
+        }
+    }
+    return true;
+}
+
+int build(svmap args, fs::path baseDir) {
     auto keyExists = [](auto map, auto key) -> bool { return (map.find(key) != map.end()); };
 
     auto runOnEach = [&](std::string key, auto fn) -> void { if (keyExists(args, key)) for (auto v : args.at(key)) fn(v); };
 
     if (!keyExists(args, "root")) {
         std::cerr << "usage: p++ requires at least one root source directory.\n";
-        return;
+        return 1;
     }
 
     if (keyExists(args, "cwd"))
@@ -57,31 +71,41 @@ void build(svmap args, fs::path baseDir) {
 
     std::string compilerFlags = "";
     runOnEach("include", [&](auto v) { compilerFlags += "-I \"" + (baseDir / fs::path(v)).string() + "\" "; });
+    
     runOnEach("libDir", [&](auto v) { compilerFlags += "-L \"" + (baseDir / fs::path(v)).string() + "\" "; });
+    if constexpr (isUnix()) compilerFlags += "-Wl,-rpath='$ORIGIN' ";
     runOnEach("lib", [&](auto v) { compilerFlags += "-l" + v + " "; });
+    
     runOnEach("define", [&](auto v) { compilerFlags += "-D " + v + " "; });
     runOnEach("gccflags", [&](auto v) { compilerFlags += v + " "; });
+
     if (keyExists(args, "out"))
         compilerFlags += "-o \"" + (baseDir / fs::path(args.at("out").at(0))).string() + "\" ";
     else
         compilerFlags += "-o \"" + baseDir.string() + "/a.exe\" ";
 
+    bool requiredDirsExist = true;
+    runOnEach("mkdir", [&](auto v) { if (requiredDirsExist) requiredDirsExist = checkAndCreateDir(baseDir / fs::path(v)); });
+
+    if (!requiredDirsExist) return 1;
+
     std::string filesString = "";
     for (auto dir : rootDirs) {
         if (!fs::exists(dir)) {
             std::cerr << "error: root directory '" << dir.c_str() << "' does not exist!\n";
-            return;
+            return 1;
         }
         searchDirectory(dir, excludePaths, filesString);
     }
 
     if (filesString.empty()) {
         std::cerr << "warning: no c++ files found in any of the specified root directories\n";
-        return;
+        return 1;
     }
 
     std::cout << "\033[33;1mexecuting: g++ " << filesString << compilerFlags << "\033[0m\n";
-    system(("g++ " + filesString + compilerFlags).c_str());
+    auto a = system(("g++ " + filesString + compilerFlags).c_str());
+    return 0;
 }
 
 svmap parseArgs(int argc, char const **argv) {
@@ -118,23 +142,24 @@ svmap parseArgs(int argc, char const **argv) {
     return args;
 }
 
-void buildWithArgs(int argc, char const **argv) {
+int buildWithArgs(int argc, char const **argv) {
     std::cout << "building via command-line arguments\n";
     auto args = parseArgs(argc, argv);
-    build(args, fs::absolute(fs::path("./")));
+    return build(args, fs::absolute(fs::path("./")));
 }
 
-void buildWithFile(std::string path, std::string profile = "") {
+int buildWithFile(std::string path, std::string profile = "") {
     std::cout << "building: '\033[34;1m" << path << "\033[0m'";
     if (!profile.empty()) std::cout << " on profile: '\033[32;1m" << profile << "\033[0m'";
     std::cout << "\n";
     auto args = parse_file(path, profile);
-    build(args, fs::absolute(fs::path(path)).parent_path());
+    return build(args, fs::absolute(fs::path(path)).parent_path());
 }
 
 int main(int argc, char const **argv) {
+    int exitCode;    
     if (argc < 2)
-        buildWithFile("./build.ppp");
+        exitCode = buildWithFile("./build.ppp");
     else if (std::string arg1 = argv[1]; arg1.substr(0, 2) == "-b" || arg1.substr(0, 2) == "_b") {
         std::string buildfile = "./build";
         if (arg1.size() > 2) buildfile = arg1.substr(2);
@@ -142,8 +167,8 @@ int main(int argc, char const **argv) {
         std::string profile = "";
         if (argc > 2) profile = argv[2];
 
-        buildWithFile(buildfile + ".ppp", profile); 
-    } else buildWithArgs(argc, argv);
+        exitCode = buildWithFile(buildfile + ".ppp", profile); 
+    } else exitCode = buildWithArgs(argc, argv);
 
-    return 0;
+    return exitCode;
 }
