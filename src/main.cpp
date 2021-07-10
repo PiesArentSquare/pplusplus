@@ -1,4 +1,4 @@
-#include <string.h>
+#include <functional>
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -15,8 +15,6 @@ std::map<char, std::string> cmdKeyToKeyMap = {
     {'c', "cwd"},
     {'o', "out"}
 };
-
-std::map<std::string, std::function<void(strvec)>> keyFunctions;
 
 void searchDirectory(fs::path root, std::vector<fs::path> excludePaths, std::string& fileString) {
     for (auto file : fs::directory_iterator(root)) {
@@ -43,7 +41,7 @@ bool checkAndCreateDir(fs::path dir) {
             fs::create_directories(dir);
             std::cout << "directory '" << dir.string() << "' created!\n";
             return true;
-        } catch (fs::filesystem_error e) {
+        } catch (fs::filesystem_error const &e) {
             std::cout << e.what() << '\n';
             return false;
         }
@@ -103,8 +101,7 @@ int build(svmap args, fs::path baseDir) {
     }
 
     std::cout << "\033[33;1mexecuting: g++ " << filesString << compilerFlags << "\033[0m\n";
-    auto a = system(("g++ " + filesString + compilerFlags).c_str());
-    return 0;
+    return system(("g++ " + filesString + compilerFlags).c_str());
 }
 
 svmap parseArgs(int argc, char const **argv) {
