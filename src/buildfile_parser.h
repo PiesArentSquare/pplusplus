@@ -106,13 +106,14 @@ class Parser {
     inline void setProfileOrOS() {
         advance();
         if (m_current == '#') {
-            if (m_profile == makeString("\n")) isCorrectProfile = true;
+            auto currentProfile = makeString("\n"); 
+            if (currentProfile == m_profile || currentProfile == "*") isCorrectProfile = true;
             else isCorrectProfile = false;
         }
         else {
             std::string currentOs{m_current};
             currentOs += makeString("\n");
-            if (currentOs == os() || currentOs == getUnixStr()) isCorrectOS = true;
+            if (currentOs == os() || currentOs == getUnixStr() || currentOs == "*") isCorrectOS = true;
             else isCorrectOS = false;
         }
     }
