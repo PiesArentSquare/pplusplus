@@ -123,7 +123,7 @@ svmap parseArgs(int argc, char const **argv) {
         currentArg = argv[i];
         if (currentArg.substr(0, 1) == "-") {
             if (!currentKey.empty()) {
-                insert(args, currentValues, currentKey);
+                insert(args, currentKey, currentValues);
                 currentValues.clear();
             }
 
@@ -134,7 +134,7 @@ svmap parseArgs(int argc, char const **argv) {
             currentValues.push_back(currentArg);
         }
     }
-    insert(args, currentValues, currentKey);
+    insert(args, currentKey, currentValues);
     return args;
 }
 
@@ -148,7 +148,7 @@ int buildWithFile(std::string path, std::string profile = "") {
     std::cout << "building: '\033[34;1m" << path << "\033[0m'";
     if (!profile.empty()) std::cout << " on profile: '\033[32;1m" << profile << "\033[0m'";
     std::cout << "\n";
-    auto args = parse_file(path, profile);
+    auto args = Parser(path, profile).parse();
     return build(args, fs::absolute(fs::path(path)).parent_path());
 }
 

@@ -24,7 +24,7 @@ std::string read_file(std::string filepath) {
 typedef std::vector<std::string> strvec;
 typedef std::map<std::string, strvec> svmap;
 
-void insert(svmap &map, strvec &vec, std::string const &key) {
+void insert(svmap &map, std::string const &key, strvec &vec) {
     auto it = map.find(key);
     if (it != map.end()) {
         auto v = map[key];
@@ -33,12 +33,17 @@ void insert(svmap &map, strvec &vec, std::string const &key) {
     } else map.insert({key, vec});
 }
 
-constexpr char const *isUnix() {
+constexpr bool isUnix() {
     #if defined(unix) || defined(__unix) || defined(__unix__)
-    return "unix";
+    return true;
     #else
-    return 0;
+    return false;
     #endif
+}
+
+constexpr const char *getUnixStr() {
+    if constexpr (isUnix()) return "unix";
+    return "";
 }
 
 constexpr char const *os() {
@@ -60,68 +65,103 @@ class Parser {
 
     std::string m_profile;
     bool isCorrectOS = true, isCorrectProfile = true;
+    bool isBracket = false;
 
     inline bool advance() {
         m_pos++;
-        return m_current = (m_pos < m_text.length()) ? m_text[m_pos] : 0;
+        return (m_current = (m_pos < m_text.length()) ? m_text[m_pos] : 0);
     }
 
     inline bool contains(std::string const &source, char c) {
         return source.find(c) != std::string::npos;
     }
 
-    inline std::string makeString(char delim = '"') {
+    inline std::string makeString(std::string delims = "\"", bool raw = false) {
+        advance();
         std::string res;
-        while (m_current != delim) {
-            if (m_current == '\\') if(!advance()) break;
+        while (!contains(delims, m_current)) {
+            if (!raw && m_current == '\\') if(!advance()) break;
             res += m_current;
             if(!advance()) break;
         }
-        advance();
         return res;
+    }
+
+    inline bool isComment() {
+        if(!advance()) return false;
+        if (m_current == '/') {
+            makeString("\n", true);
+            return true;
+        }
+        else if (m_current == '*') {
+            do {
+                makeString("*");
+                if(!advance()) break;
+            } while (m_current != '/');
+            return true;
+        }
+        else return false;
     }
 
     inline void setProfileOrOS() {
         advance();
         if (m_current == '#') {
-            advance();
-            if (m_profile == makeString('\n')) isCorrectProfile = true;
-            else isCorrectProfile == false;
+            if (m_profile == makeString("\n")) isCorrectProfile = true;
+            else isCorrectProfile = false;
         }
         else {
-            auto currentOs = makeString('\n');
-            if (currentOs == os() || currentOs == isUnix()) isCorrectOS = true;
+            std::string currentOs{m_current};
+            currentOs += makeString("\n");
+            if (currentOs == os() || currentOs == getUnixStr()) isCorrectOS = true;
             else isCorrectOS = false;
         }
     }
 
 public:
-    Parser(std::string const &text, std::string const &profile) : m_text(text), m_current(text[0]), m_profile(profile) {}
+    Parser(std::string const &filename, std::string const &profile) : m_text(read_file(filename)), m_current(m_text[0]), m_profile(profile) {}
 
-    inline void parse() {
+    inline svmap parse() {
+        std::string objKey, tempValue, *currentString = &objKey;
+        strvec objValue;
+        svmap objMap;
 
-        std::string currentString;
+        auto pushValue = [&]() -> void {
+            if (!tempValue.empty()) {
+                objValue.push_back(tempValue);
+                tempValue = "";
+            }
+            if (!isBracket) {
+                insert(objMap, objKey, objValue);
+                currentString = &objKey;
+                objKey = "";
+                objValue = {};
+            }
+        };
 
         while (m_current) {
             if (m_current == '#') setProfileOrOS();
-            else if (!isCorrectOS || !isCorrectProfile) advance();
-            else if (contains(" \t\n\r", m_current)) advance();
-            else if (m_current == '"') {
-                advance();
-                currentString += makeString();
+            else if (!isCorrectOS || !isCorrectProfile || contains(" \t\n\r", m_current)) {}
+            else if (m_current == '/') {
+                if (!isComment()) {
+                    *currentString += '/';
+                    m_pos--;
+                }
             }
+            else if (m_current == '"') *currentString += makeString();
+            else if (m_current == ':') currentString = &tempValue;
+            else if (m_current == '[') isBracket = true;
+            else if (m_current == ']') isBracket = false;
+            else if (m_current == ',') pushValue();
+            else {
+                *currentString += m_current;
+                *currentString += makeString("# \t\n\r/\":[],");
+                m_pos--;
+            }
+            if(!advance()) break;
         }
+
+        pushValue();
+
+        return objMap;
     }
 };
-
-svmap parse_file(std::string filepath, const std::string profile) {
-
-    std::string text = read_file(filepath);
-
-    svmap objMap;
-
-    bool isKey = 1, isStr = 0;
-    std::string unixOS = isUnix ? "unix" : "";
-
-    return objMap;
-}
