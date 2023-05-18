@@ -1,4 +1,4 @@
 # pplusplus
-a small g++ compiler wrapper that adds recursive source directory searching to remove the need to update the g++ command every time a file is added to a project
+a small g++ buildsystem with recursive folder search
 
 note: requires -lstdc++fs and -std=c++17 to compile with g++
